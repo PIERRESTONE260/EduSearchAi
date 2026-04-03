@@ -19,7 +19,15 @@
         ]
       }
     ],
-    "meta-viewport": "off"
+    "meta-viewport": "off",
+    "axe/parsing": [
+      "default",
+      {
+        "duplicate-id-active": "off",
+        "duplicate-id": "off"
+      }
+    ],
+    "no-inline-styles": "off"
   },
   "browserslist": [
     "defaults",

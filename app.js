@@ -1,10 +1,8 @@
 // ===============================================
-// EDUSEARCH AI - Logique Principale V3 (Anti-Panne)
+// EDUSEARCH AI - Logique Principale Finale (V5)
 // ===============================================
 
-const API_KEY = 'AIzaSyD9kZm89bENZXyErbv7oYZFAIY4383kfqs'; 
-
-// Proxy pour contourner les erreurs CORS
+const API_KEY = '1228fa094e3fc5c0cec02da190f00c94094a5ceb17332a536d8642313734a662'; 
 const PROXY_URL = 'https://api.allorigins.win/raw?url='; 
 
 let synth = window.speechSynthesis;
@@ -52,7 +50,7 @@ function handleKeyPress(e) {
 }
 
 function feelingLucky() {
-    const q =["Pédagogie différenciée", "Félix Tshisekedi", "Comment fonctionne une IA ?", "Les lois de Newton", "Histoire de la RDC"];
+    const q =["L'histoire des ordinateurs", "Félix Tshisekedi", "Comment fonctionne une IA ?", "Les lois de Newton", "La photosynthèse", "Albert Einstein"];
     document.getElementById('main-search-query').value = q[Math.floor(Math.random() * q.length)];
     executeSearch();
 }
@@ -79,7 +77,7 @@ function startVoiceSearch() {
 }
 
 // ===============================================
-// 3. ANIMATION DE CHARGEMENT (Skeleton Loader)
+// 3. ANIMATION DE CHARGEMENT (Skeleton)
 // ===============================================
 
 function showSkeletonLoader() {
@@ -98,7 +96,7 @@ function showSkeletonLoader() {
 }
 
 // ===============================================
-// 4. LOGIQUE API & MODE SECOURS (Wikipedia)
+// 4. LOGIQUE API PRINCIPALE
 // ===============================================
 
 async function executeSearch() {
@@ -142,16 +140,15 @@ async function fetchSerpApi(query, level) {
         let response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
         let data = await response.json();
         
-        if(data.error) throw new Error("API Limit"); // Déclenche le catch si limite atteinte
+        if (data.error) throw new Error("API Limit"); 
 
         let processed = processResults(data);
 
-        // Fallback sans filtre si aucun résultat
         if (processed.web.length === 0) {
             params.delete('as_sitesearch');
             response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
             data = await response.json();
-            if(data.error) throw new Error("API Limit");
+            if (data.error) throw new Error("API Limit");
             processed = processResults(data);
         }
         
@@ -159,51 +156,16 @@ async function fetchSerpApi(query, level) {
         return processed;
 
     } catch (error) {
-        console.warn("API Google indisponible ou limite atteinte. Passage au Mode Secours (Wikipedia)...");
-        return await fetchWikipediaFallback(query);
+        console.warn("Lancement du Méta-Moteur à 10 sources libres...");
+        return await fetchUnlimitedSources(query, level);
     }
-}
-
-// Le Mode Secours : Si la clé Google est épuisée
-async function fetchWikipediaFallback(query) {
-    // origin=* est très important pour contourner les erreurs CORS de Wikipedia
-    const url = `https://fr.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (!data.query || !data.query.search || data.query.search.length === 0) {
-        throw new Error("Aucun résultat trouvé, même sur notre encyclopédie de secours. Essayez de reformuler la question.");
-    }
-    
-    const res = { web:[], images:[] };
-    
-    // Message informatif pour l'utilisateur
-    res.web.push({
-        title: "ℹ️ Base de données encyclopédique",
-        snippet: "Mode secours activé. Voici les résultats issus de l'encyclopédie libre (Wikipedia) pour garantir que vous ayez toujours accès à l'éducation.",
-        source: "Système de secours EduSearch",
-        link: "#",
-        thumb: null // Pas de miniature pour le message d'alerte
-    });
-
-    data.query.search.slice(0, 10).forEach(item => {
-        let cleanSnippet = item.snippet.replace(/<\/?[^>]+(>|$)/g, ""); // Nettoyer les balises HTML de Wikipedia
-        res.web.push({
-            title: item.title,
-            snippet: cleanSnippet + "...",
-            source: "Wikipedia",
-            link: `https://fr.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/ /g, '_'))}`,
-            thumb: null // <--- CORRECTION : On met "null" pour enlever l'image cassée
-        });
-    });
-    return res;
 }
 
 function processResults(data) {
     const res = { web:[], images: data.inline_images ? data.inline_images.slice(0, 6).map(i => i.thumbnail) :[] };
     
     if (data.answer_box) {
-         res.web.push({ title: data.answer_box.title || 'Définition Rapide', snippet: data.answer_box.answer || data.answer_box.snippet, source: 'Réponse Directe', link: data.answer_box.source?.link || '#', thumb: data.answer_box.thumbnail });
+         res.web.push({ title: data.answer_box.title || 'Définition', snippet: data.answer_box.answer || data.answer_box.snippet, source: 'Réponse Directe', link: data.answer_box.source?.link || '#', thumb: data.answer_box.thumbnail });
     }
     
     if (data.organic_results) {
@@ -217,14 +179,210 @@ function processResults(data) {
 }
 
 // ===============================================
-// 5. AFFICHAGE DES RÉSULTATS
+// 5. LE MÉTA-MOTEUR (10 API SIMULTANÉES)
+// ===============================================
+
+async function fetchUnlimitedSources(query, level) {
+    const res = { web: [], images:[] };
+    const fetchAPI = async (name, task) => {
+        try { await task(); } catch (e) { console.warn(`API ${name} ignorée.`); }
+    };
+    const promises =[];
+
+    // 1. WIKIPEDIA (Priorité 1)
+    promises.push(fetchAPI('Wikipedia', async () => {
+        const url = `https://fr.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages|extracts&exchars=250&exintro=1&pithumbsize=400&format=json&origin=*`;
+        const data = await (await fetch(url)).json();
+        if (data.query && data.query.pages) {
+            Object.values(data.query.pages).forEach(p => {
+                res.web.push({
+                    title: "📖 Wiki : " + p.title,
+                    snippet: p.extract ? p.extract.replace(/<\/?[^>]+(>|$)/g, "") : "Pas de description.",
+                    source: "Wikipedia",
+                    link: `https://fr.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`,
+                    thumb: p.thumbnail ? p.thumbnail.source : null,
+                    priority: 1
+                });
+                if(p.thumbnail) res.images.push(p.thumbnail.source);
+            });
+        }
+    }));
+
+    // 2. WIKIMEDIA COMMONS
+    promises.push(fetchAPI('Commons', async () => {
+        const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&prop=imageinfo&iiprop=url&format=json&origin=*`;
+        const data = await (await fetch(url)).json();
+        if (data.query && data.query.pages) {
+            Object.values(data.query.pages).forEach(p => {
+                if(p.imageinfo && p.imageinfo[0]) res.images.push(p.imageinfo[0].url);
+            });
+        }
+    }));
+
+    // 3. WIKTIONARY (Priorité 2)
+    promises.push(fetchAPI('Wiktionary', async () => {
+        const url = `https://fr.wiktionary.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+        const data = await (await fetch(url)).json();
+        if (data.query && data.query.search) {
+            data.query.search.slice(0, 2).forEach(p => {
+                res.web.push({
+                    title: "📝 Définition : " + p.title,
+                    snippet: p.snippet.replace(/<\/?[^>]+(>|$)/g, "") + "...",
+                    source: "Dictionnaire Wiktionary",
+                    link: `https://fr.wiktionary.org/wiki/${encodeURIComponent(p.title)}`,
+                    thumb: null,
+                    priority: 2
+                });
+            });
+        }
+    }));
+
+    // 4. OPEN LIBRARY (Priorité 4)
+    promises.push(fetchAPI('OpenLibrary', async () => {
+        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=2`;
+        const data = await (await fetch(url)).json();
+        if (data.docs) {
+            data.docs.forEach(doc => {
+                res.web.push({
+                    title: "📚 Livre : " + doc.title,
+                    snippet: `Auteur: ${doc.author_name ? doc.author_name.join(', ') : 'Inconnu'}. Année: ${doc.first_publish_year || 'N/A'}.`,
+                    source: "Open Library",
+                    link: `https://openlibrary.org${doc.key}`,
+                    thumb: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+                    priority: 4
+                });
+            });
+        }
+    }));
+
+    // 5. PROJET GUTENBERG (Priorité 5)
+    promises.push(fetchAPI('Gutendex', async () => {
+        const url = `https://gutendex.com/books?search=${encodeURIComponent(query)}`;
+        const data = await (await fetch(url)).json();
+        if (data.results) {
+            data.results.slice(0, 1).forEach(doc => {
+                res.web.push({
+                    title: "🏛️ Classique : " + doc.title,
+                    snippet: `Auteur: ${doc.authors.map(a=>a.name).join(', ')}.`,
+                    source: "Projet Gutenberg",
+                    link: `https://gutenberg.org/ebooks/${doc.id}`,
+                    thumb: doc.formats['image/jpeg'] || null,
+                    priority: 5
+                });
+            });
+        }
+    }));
+
+    if (level === 'etudiant' || level === 'professeur') {
+        // 6. HAL SCIENCE (Priorité 3)
+        promises.push(fetchAPI('HAL', async () => {
+            const url = `https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(query)}&wt=json&fl=title_s,uri_s,abstract_s&rows=2`;
+            const data = await (await fetch(url)).json();
+            if (data.response && data.response.docs) {
+                data.response.docs.forEach(doc => {
+                    res.web.push({
+                        title: "🎓 Thèse : " + doc.title_s[0],
+                        snippet: doc.abstract_s ? doc.abstract_s[0].substring(0, 200) + "..." : "Document issu des archives.",
+                        source: "HAL Science",
+                        link: doc.uri_s,
+                        thumb: "https://hal.science/img/logo-hal.svg",
+                        priority: 3
+                    });
+                });
+            }
+        }));
+
+        // 7. OPENALEX (Priorité 4)
+        promises.push(fetchAPI('OpenAlex', async () => {
+            const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=2`;
+            const data = await (await fetch(url)).json();
+            if (data.results) {
+                data.results.forEach(doc => {
+                    res.web.push({
+                        title: "🌍 Recherche : " + (doc.title || 'Document'),
+                        snippet: `Année: ${doc.publication_year}. Citations: ${doc.cited_by_count}.`,
+                        source: "OpenAlex",
+                        link: doc.doi || doc.id,
+                        thumb: null,
+                        priority: 4
+                    });
+                });
+            }
+        }));
+
+        // 8. CROSSREF
+        promises.push(fetchAPI('Crossref', async () => {
+            const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&select=title,URL&rows=2`;
+            const data = await (await fetch(url)).json();
+            if (data.message && data.message.items) {
+                data.message.items.forEach(doc => {
+                    res.web.push({
+                        title: "📄 Publication : " + (doc.title ? doc.title[0] : 'Inconnu'),
+                        snippet: "Données officielles.",
+                        source: "Crossref",
+                        link: doc.URL,
+                        thumb: null,
+                        priority: 4
+                    });
+                });
+            }
+        }));
+
+        // 9. PLOS
+        promises.push(fetchAPI('PLOS', async () => {
+            const url = `https://api.plos.org/search?q=title:"${encodeURIComponent(query)}"&wt=json&fl=id,title&rows=2`;
+            const data = await (await fetch(url)).json();
+            if (data.response && data.response.docs) {
+                data.response.docs.forEach(doc => {
+                    res.web.push({
+                        title: "🔬 Science (PLOS) : " + doc.title,
+                        snippet: "Article scientifique en accès libre.",
+                        source: "PLOS Journals",
+                        link: `https://journals.plos.org/plosone/article?id=${doc.id}`,
+                        thumb: null,
+                        priority: 4
+                    });
+                });
+            }
+        }));
+
+        // 10. DATA.GOUV.FR
+        promises.push(fetchAPI('DataGouv', async () => {
+            const url = `https://www.data.gouv.fr/api/1/datasets/?q=${encodeURIComponent(query)}&page_size=2`;
+            const data = await (await fetch(url)).json();
+            if (data.data) {
+                data.data.forEach(doc => {
+                    res.web.push({
+                        title: "📊 Données Publiques : " + doc.title,
+                        snippet: doc.description ? doc.description.substring(0, 150).replace(/<\/?[^>]+(>|$)/g, "") + "..." : "Base de l'État.",
+                        source: "Data.gouv.fr",
+                        link: doc.page,
+                        thumb: null,
+                        priority: 5
+                    });
+                });
+            }
+        }));
+    }
+
+    await Promise.allSettled(promises);
+    res.images = [...new Set(res.images)].slice(0, 15);
+
+    if (res.web.length === 0) throw new Error("Aucun résultat trouvé.");
+    res.web.sort((a, b) => (a.priority || 10) - (b.priority || 10));
+
+    return res;
+}
+
+// ===============================================
+// 6. AFFICHAGE DES RÉSULTATS
 // ===============================================
 
 function displayResults(results) {
     const imagesHub = document.getElementById('images-hub');
     const resultsList = document.getElementById('results-list');
     
-    imagesHub.innerHTML = results.images.map(img => `<img src="${img}" alt="Image illustrant la recherche">`).join('');
+    imagesHub.innerHTML = results.images.map(img => `<img src="${img}" alt="Image" onerror="this.style.display='none'">`).join('');
     
     resultsList.innerHTML = results.web.map(res => {
         const titleEsc = res.title.replace(/"/g, '\\"');
@@ -239,23 +397,23 @@ function displayResults(results) {
             </div>
             <h3><a href="${res.link}" target="_blank">${res.title}</a></h3>
             <div class="snippet-container">
-                <p>${res.snippet || 'Aucune description fournie pour ce lien.'}</p>
+                <p>${res.snippet || 'Aucune description fournie.'}</p>
                 ${thumbHtml}
             </div>
             <div class="result-actions">
                 <button class="btn-primary-action" onclick="readAloud(\`${titleEsc}. ${snipEsc}\`, this)">▶️ Écouter</button>
-                <button onclick="addToFavorites(\`${titleEsc}\`, \`${snipEsc}\`, \`${res.link}\`)">⭐ Garder en favoris</button>
+                <button onclick="addToFavorites(\`${titleEsc}\`, \`${snipEsc}\`, \`${res.link}\`)">⭐ Garder</button>
             </div>
         </div>`;
     }).join('');
 }
 
 // ===============================================
-// 6. OUTILS (Lecture vocale, Historique, Favoris, Thème)
+// 7. PROFILS, VOIX ET THÈMES
 // ===============================================
 
 function readAloud(text, btn) {
-    if(!synth) return alert("Lecture vocale non supportée sur ce navigateur.");
+    if(!synth) return alert("Lecture vocale non supportée.");
     if(synth.speaking) { 
         synth.cancel(); 
         btn.innerHTML="▶️ Écouter"; 
@@ -290,11 +448,14 @@ function setupThemeToggle() {
     };
 }
 
-// -- Gestion de l'Historique --
+// ===============================================
+// 8. HISTORIQUE & FAVORIS
+// ===============================================
+
 function saveToHistory(item) {
     let hist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
     hist.unshift(item);
-    localStorage.setItem('searchHistory', JSON.stringify(hist.slice(0, 15)));
+    localStorage.setItem('searchHistory', JSON.stringify(hist.slice(0, 30))); 
 }
 
 function loadHistory() {
@@ -303,21 +464,25 @@ function loadHistory() {
     list.innerHTML = hist.map(h => `
         <li class="history-item">
             <div>
-                <strong>${h.query}</strong><br>
-                <small>${h.level} | ${h.timestamp}</small>
+                <strong>🔍 ${h.query}</strong><br>
+                <small style="color:var(--secondary-text)">${h.level} | ${h.timestamp}</small>
             </div>
-        </li>`).join('') || '<p>Votre historique est vide.</p>';
+        </li>`).join('') || '<p style="text-align:center; color:var(--secondary-text);">Votre historique est vide.</p>';
 }
 
-// -- Gestion des Favoris --
+function clearHistory() {
+    if(confirm("Voulez-vous vraiment effacer tout votre historique ?")) {
+        localStorage.setItem('searchHistory', '[]');
+        loadHistory();
+    }
+}
+
 function addToFavorites(t, s, l) {
     let fav = JSON.parse(localStorage.getItem('favorites') || '[]');
     if(!fav.find(f => f.title === t)) { 
         fav.push({title: t, snippet: s, link: l}); 
         localStorage.setItem('favorites', JSON.stringify(fav)); 
-        alert("Ressource ajoutée aux favoris ! ⭐");
-    } else {
-        alert("Déjà dans vos favoris !");
+        alert("⭐ Ressource ajoutée aux favoris !");
     }
 }
 
@@ -327,57 +492,43 @@ function loadFavorites() {
     list.innerHTML = fav.map(f => `
         <li class="favorite-item">
             <div style="flex-grow: 1; margin-right: 15px;">
-                <a href="${f.link}" target="_blank" style="color:var(--g-blue);font-weight:bold;text-decoration:none;">${f.title}</a><br>
-                <small>${f.snippet}</small>
+                <a href="${f.link}" target="_blank" style="color:var(--g-blue);font-weight:bold;text-decoration:none;font-size:16px;">${f.title}</a><br>
+                <small style="color:var(--secondary-text);">${f.snippet}</small>
             </div> 
-            <button onclick="deleteFav('${f.title.replace(/'/g, "\\'")}')" style="background:#ea4335;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-weight:bold;">X</button>
-        </li>`).join('') || '<p>Vous n\'avez aucun favori pour l\'instant.</p>';
+            <button class="delete-item-btn" title="Supprimer ce favori" onclick="deleteFav('${f.title.replace(/'/g, "\\'")}')">❌</button>
+        </li>`).join('') || '<p style="text-align:center; color:var(--secondary-text);">Vous n\'avez aucun favori pour l\'instant.</p>';
 }
 
 function deleteFav(title) { 
     let fav = JSON.parse(localStorage.getItem('favorites') || '[]');
-    // On garde tous les favoris sauf celui qu'on veut supprimer
     fav = fav.filter(f => f.title !== title);
     localStorage.setItem('favorites', JSON.stringify(fav));
     loadFavorites();
 }
 
-// ===============================================
-// 7. GESTION HORS LIGNE (IndexedDB)
-// ===============================================
+function clearFavorites() {
+    if(confirm("Voulez-vous vraiment effacer tous vos favoris ?")) {
+        localStorage.setItem('favorites', '[]');
+        loadFavorites();
+    }
+}
 
-const DB_NAME = 'EduSearchDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'searches';
+// ===============================================
+// 9. HORS LIGNE (IndexedDB)
+// ===============================================
 
 function initializeIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = (event) => {
-            console.error("Erreur IndexedDB:", event.target.errorCode);
-            reject(event.target.errorCode);
-        };
-
-        request.onupgradeneeded = (event) => {
-            db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-            }
-        };
-
-        request.onsuccess = (event) => {
-            db = event.target.result;
-            resolve(db);
-        };
-    });
+    const request = indexedDB.open('EduSearchDB', 1);
+    request.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains('searches')) db.createObjectStore('searches', { keyPath: 'id' });
+    };
+    request.onsuccess = (e) => { db = e.target.result; };
 }
 
-function saveToIndexedDB(searchData) {
+function saveToIndexedDB(data) {
     if (!db) return;
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    store.put(searchData);
+    db.transaction(['searches'], 'readwrite').objectStore('searches').put(data);
 }
 
-// FIN DU FICHIER
+// FIN DU FICHIER COMPLET

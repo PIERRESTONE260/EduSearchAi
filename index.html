@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="apple-touch-icon" href="icons/favicon.png">
+    <link rel="apple-touch-icon" href="icons/favicon.svg">
     <meta name="theme-color" content="#ffffff">
 </head>
 <body>
@@ -23,12 +23,48 @@
                     <span class="c-blue">E</span><span class="c-red">d</span><span class="c-yellow">u</span><span class="c-blue">S</span><span class="c-green">e</span><span class="c-red">a</span><span class="c-yellow">r</span><span class="c-blue">c</span><span class="c-green">h</span>
                 </a>
             </div>
-            <ul class="nav-links" id="nav-links">
-                <li><a href="#" onclick="showSection('inscription')">Mon Profil</a></li>
-                <li><a href="#" onclick="showSection('historique')">Historique</a></li>
-                <li><a href="#" onclick="showSection('favoris')">Favoris ⭐</a></li>
-                <li><button type="button" id="theme-toggle" title="Changer de thème" class="icon-btn">☀️</button></li>
-            </ul>
+            <!-- Section Profil -->
+            <section id="inscription" class="hidden-section form-section">
+                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+                <div class="card">
+                    <div class="profile-header">
+                        <div class="profile-avatar">👤</div>
+                        <h2>Mon Profil</h2>
+                        <p>Personnalisez vos résultats de recherche</p>
+                    </div>
+                    <form id="registration-form">
+                        <input type="text" id="prenom" placeholder="Votre Prénom" required>
+                        <select id="niveau" required>
+                            <option value="" disabled selected>Choisissez votre niveau...</option>
+                            <option value="eleve">🎓 Élève (Primaire, Collège, Lycée)</option>
+                            <option value="etudiant">🏛️ Étudiant (Supérieur, Université)</option>
+                            <option value="professeur">👨‍🏫 Professeur (Ressources, Pédagogie)</option>
+                        </select>
+                        <button type="submit" class="cta-button">Enregistrer mon profil</button>
+                        <p id="registration-message" class="success-message" style="color:var(--g-green); text-align:center; font-weight:bold; margin-top:10px;"></p>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Section Historique -->
+            <section id="historique" class="hidden-section history-section">
+                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+                <div class="section-header">
+                    <h2>⏳ Historique</h2>
+                    <button class="clear-btn" onclick="clearHistory()">🗑️ Tout effacer</button>
+                </div>
+                <ul id="history-list" class="history-list"></ul>
+            </section>
+
+            <!-- Section Favoris -->
+            <section id="favoris" class="hidden-section favorites-section">
+                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+                <div class="section-header">
+                    <h2>⭐ Favoris sauvegardés</h2>
+                    <button class="clear-btn" onclick="clearFavorites()">🗑️ Tout effacer</button>
+                </div>
+                <ul id="favorites-list" class="favorites-list"></ul>
+            </section>
             <button type="button" class="hamburger" id="hamburger-menu">☰</button>
         </nav>
     </header>
