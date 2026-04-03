@@ -5,73 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EduSearch AI - Moteur Éducatif</title>
     
-    <!-- Police Google Roboto -->
+    <!-- Police Google Roboto pour un affichage parfait -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     
-    <!-- PWA & Favicon -->
+    <!-- Fichiers liés (CSS, PWA, Favicon) -->
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="apple-touch-icon" href="icons/favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
     <meta name="theme-color" content="#ffffff">
 </head>
 <body>
     <header>
         <nav class="navbar">
             <div class="nav-left">
+                <!-- Petit logo affiché uniquement lors des résultats -->
                 <a href="#" class="logo-small hidden" id="nav-logo" onclick="resetToHome()">
                     <span class="c-blue">E</span><span class="c-red">d</span><span class="c-yellow">u</span><span class="c-blue">S</span><span class="c-green">e</span><span class="c-red">a</span><span class="c-yellow">r</span><span class="c-blue">c</span><span class="c-green">h</span>
                 </a>
             </div>
-            <!-- Section Profil -->
-            <section id="inscription" class="hidden-section form-section">
-                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-                <div class="card">
-                    <div class="profile-header">
-                        <div class="profile-avatar">👤</div>
-                        <h2>Mon Profil</h2>
-                        <p>Personnalisez vos résultats de recherche</p>
-                    </div>
-                    <form id="registration-form">
-                        <input type="text" id="prenom" placeholder="Votre Prénom" required>
-                        <select id="niveau" required>
-                            <option value="" disabled selected>Choisissez votre niveau...</option>
-                            <option value="eleve">🎓 Élève (Primaire, Collège, Lycée)</option>
-                            <option value="etudiant">🏛️ Étudiant (Supérieur, Université)</option>
-                            <option value="professeur">👨‍🏫 Professeur (Ressources, Pédagogie)</option>
-                        </select>
-                        <button type="submit" class="cta-button">Enregistrer mon profil</button>
-                        <p id="registration-message" class="success-message" style="color:var(--g-green); text-align:center; font-weight:bold; margin-top:10px;"></p>
-                    </form>
-                </div>
-            </section>
-
-            <!-- Section Historique -->
-            <section id="historique" class="hidden-section history-section">
-                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-                <div class="section-header">
-                    <h2>⏳ Historique</h2>
-                    <button class="clear-btn" onclick="clearHistory()">🗑️ Tout effacer</button>
-                </div>
-                <ul id="history-list" class="history-list"></ul>
-            </section>
-
-            <!-- Section Favoris -->
-            <section id="favoris" class="hidden-section favorites-section">
-                <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-                <div class="section-header">
-                    <h2>⭐ Favoris sauvegardés</h2>
-                    <button class="clear-btn" onclick="clearFavorites()">🗑️ Tout effacer</button>
-                </div>
-                <ul id="favorites-list" class="favorites-list"></ul>
-            </section>
+            
+            <ul class="nav-links" id="nav-links">
+                <li><a href="#" onclick="showSection('inscription')">Mon Profil</a></li>
+                <li><a href="#" onclick="showSection('historique')">Historique</a></li>
+                <li><a href="#" onclick="showSection('favoris')">Favoris ⭐</a></li>
+                <li><button type="button" id="theme-toggle" title="Changer de thème" class="icon-btn">☀️</button></li>
+            </ul>
+            
+            <!-- Bouton menu pour mobiles -->
             <button type="button" class="hamburger" id="hamburger-menu">☰</button>
         </nav>
     </header>
 
     <main id="main-content">
-        <!-- Moteur de recherche (Vue Principale) -->
+        <!-- ========================================== -->
+        <!-- SECTION 1 : LE MOTEUR DE RECHERCHE CENTRAL -->
+        <!-- ========================================== -->
         <section id="recherche-section" class="search-engine-layout">
+            
             <div class="logo-large" id="main-logo">
                 <span class="c-blue">E</span><span class="c-red">d</span><span class="c-yellow">u</span><span class="c-blue">S</span><span class="c-green">e</span><span class="c-red">a</span><span class="c-yellow">r</span><span class="c-blue">c</span><span class="c-green">h</span>
                 <span class="badge-ai">AI</span>
@@ -79,18 +50,19 @@
 
             <div class="search-container" id="search-container">
                 <div class="search-bar-wrapper">
-                    <!-- Icône Loupe -->
+                    <!-- Icône Loupe SVG -->
                     <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="search-icon"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                     
                     <input type="text" id="main-search-query" placeholder="Posez une question ou cherchez un cours..." onkeypress="handleKeyPress(event)" autocomplete="off">
                     
+                    <!-- Sélecteur de profil intégré à la barre -->
                     <select id="user-profile" class="profile-select" title="Ciblez vos résultats">
                         <option value="eleve">🎓 Élève</option>
                         <option value="etudiant" selected>🏛️ Étudiant</option>
                         <option value="professeur">👨‍🏫 Professeur</option>
                     </select>
 
-                    <!-- Icône Micro pour recherche vocale -->
+                    <!-- Icône Micro SVG pour la recherche vocale -->
                     <button id="voice-btn" class="icon-btn voice-btn" title="Recherche vocale" onclick="startVoiceSearch()">
                         <svg viewBox="0 0 24 24" width="24" height="24"><path fill="#4285f4" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path><path fill="#34a853" d="M11 18.92h2V22h-2z"></path><path fill="#fbbc04" d="M7 11H5c0 1.93.78 3.68 2.05 4.95l1.41-1.41C7.56 13.63 7 12.38 7 11z"></path><path fill="#ea4335" d="M12 17c-1.66 0-3.15-.67-4.22-1.76l-1.41 1.41C7.78 18.06 9.77 19 12 19c2.76 0 5.26-1.12 7.07-2.93l-1.41-1.41C16.15 16.2 14.24 17 12 17z"></path></svg>
                     </button>
@@ -102,44 +74,70 @@
                 </div>
             </div>
 
-            <!-- Conteneur des Résultats -->
+            <!-- Conteneur d'affichage des résultats -->
             <div id="search-results-container" class="hidden">
                 <div id="images-hub" class="images-hub"></div>
                 <div id="results-list"></div>
             </div>
         </section>
 
-        <!-- Sections Secondaires -->
+        <!-- ========================================== -->
+        <!-- SECTION 2 : GESTION DU PROFIL UTILISATEUR  -->
+        <!-- ========================================== -->
         <section id="inscription" class="hidden-section form-section">
-            <h2>Personnalisez votre expérience</h2>
-            <form id="registration-form" class="card">
-                <input type="text" id="prenom" placeholder="Votre Prénom" required>
-                <select id="niveau" required>
-                    <option value="" disabled selected>Profil de recherche par défaut</option>
-                    <option value="eleve">Élève (Primaire, Collège, Lycée)</option>
-                    <option value="etudiant">Étudiant (Université, Supérieur)</option>
-                    <option value="professeur">Professeur (Pédagogie, Ressources)</option>
-                </select>
-                <button type="submit" class="cta-button">Enregistrer</button>
-                <p id="registration-message" class="success-message"></p>
-            </form>
+            <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+            <div class="card">
+                <div class="profile-header">
+                    <div class="profile-avatar">👤</div>
+                    <h2>Mon Profil</h2>
+                    <p>Personnalisez vos résultats de recherche</p>
+                </div>
+                <form id="registration-form">
+                    <input type="text" id="prenom" placeholder="Votre Prénom" required>
+                    <select id="niveau" required>
+                        <option value="" disabled selected>Choisissez votre niveau par défaut...</option>
+                        <option value="eleve">🎓 Élève (Primaire, Collège, Lycée)</option>
+                        <option value="etudiant">🏛️ Étudiant (Supérieur, Université)</option>
+                        <option value="professeur">👨‍🏫 Professeur (Ressources, Pédagogie)</option>
+                    </select>
+                    <button type="submit" class="cta-button">Enregistrer mon profil</button>
+                    <p id="registration-message" class="success-message" style="color:var(--g-green); text-align:center; font-weight:bold; margin-top:10px;"></p>
+                </form>
+            </div>
         </section>
 
+        <!-- ========================================== -->
+        <!-- SECTION 3 : HISTORIQUE DES RECHERCHES      -->
+        <!-- ========================================== -->
         <section id="historique" class="hidden-section history-section">
-            <h2>⏳ Votre Historique</h2>
+            <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+            <div class="section-header">
+                <h2>⏳ Historique</h2>
+                <button class="clear-btn" onclick="clearHistory()">🗑️ Tout effacer</button>
+            </div>
             <ul id="history-list" class="history-list"></ul>
         </section>
 
+        <!-- ========================================== -->
+        <!-- SECTION 4 : FAVORIS SAUVEGARDÉS            -->
+        <!-- ========================================== -->
         <section id="favoris" class="hidden-section favorites-section">
-            <h2>⭐ Vos Ressources Sauvegardées</h2>
+            <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
+            <div class="section-header">
+                <h2>⭐ Favoris sauvegardés</h2>
+                <button class="clear-btn" onclick="clearFavorites()">🗑️ Tout effacer</button>
+            </div>
             <ul id="favorites-list" class="favorites-list"></ul>
         </section>
+
     </main>
 
+    <!-- Pied de page -->
     <footer>
         <p>© 2026 EduSearch AI - L'intelligence artificielle au service de l'éducation.</p>
     </footer>
 
+    <!-- Script JavaScript final -->
     <script src="app.js"></script>
 </body>
 </html>
