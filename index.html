@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EduSearch AI - Moteur Éducatif</title>
-    
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -20,11 +19,10 @@
                     <span class="c-blue">E</span><span class="c-red">d</span><span class="c-yellow">u</span><span class="c-blue">S</span><span class="c-green">e</span><span class="c-red">a</span><span class="c-yellow">r</span><span class="c-blue">c</span><span class="c-green">h</span>
                 </a>
             </div>
-            
             <ul class="nav-links" id="nav-links">
-                <li><a href="#" onclick="showSection('inscription')">Mon Profil</a></li>
-                <li><a href="#" onclick="showSection('historique')">Historique</a></li>
-                <li><a href="#" onclick="showSection('favoris')">Favoris ⭐</a></li>
+                <!-- <li><a href="#" onclick="showSection('inscription')">Mon Profil</a></li> -->
+                <!-- <li><a href="#" onclick="showSection('historique')">Historique</a></li> -->
+                <!-- <li><a href="#" onclick="showSection('favoris')">Favoris ⭐</a></li> -->
                 <li><button type="button" id="theme-toggle" title="Changer de thème" class="icon-btn">☀️</button></li>
             </ul>
             <button type="button" class="hamburger" id="hamburger-menu">☰</button>
@@ -32,7 +30,6 @@
     </header>
 
     <main id="main-content">
-        <!-- MOTEUR DE RECHERCHE -->
         <section id="recherche-section" class="search-engine-layout">
             <div class="logo-large" id="main-logo">
                 <span class="c-blue">E</span><span class="c-red">d</span><span class="c-yellow">u</span><span class="c-blue">S</span><span class="c-green">e</span><span class="c-red">a</span><span class="c-yellow">r</span><span class="c-blue">c</span><span class="c-green">h</span>
@@ -45,7 +42,6 @@
                     
                     <input type="text" id="main-search-query" placeholder="Posez une question ou cherchez un cours..." onkeypress="handleKeyPress(event)" autocomplete="off">
                     
-                    <!-- Suggestions d'Autocomplétion -->
                     <div id="autocomplete-list" class="autocomplete-items"></div>
 
                     <select id="user-profile" class="profile-select" title="Ciblez vos résultats">
@@ -68,7 +64,6 @@
             <div id="search-results-container" class="hidden">
                 <div id="images-hub" class="images-hub"></div>
                 
-                <!-- Résumé IA avec effet machine à écrire -->
                 <div id="ai-summary-card" class="ai-summary-card hidden">
                     <div class="ai-badge">✨ Synthèse générée par l'IA EduSearch</div>
                     <p id="ai-summary-text" class="typing-text"></p>
@@ -78,56 +73,65 @@
             </div>
         </section>
 
-        <!-- PROFIL -->
-        <section id="inscription" class="hidden-section form-section">
+        <section id="inscription" class="hidden-section dashboard-section">
             <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-            <div class="card">
-                <div class="profile-header">
-                    <div class="profile-avatar">👤</div>
-                    <h2>Mon Profil</h2>
-                    <p>Personnalisez vos résultats et vos traductions</p>
-                </div>
-                <form id="registration-form">
-                    <input type="text" id="prenom" placeholder="Votre Prénom" required>
-                    <select id="niveau" required>
-                        <option value="" disabled selected>Choisissez votre niveau par défaut...</option>
-                        <option value="eleve">🎓 Élève (Primaire, Lycée)</option>
-                        <option value="etudiant">🏛️ Étudiant (Supérieur)</option>
-                        <option value="professeur">👨‍🏫 Professeur</option>
-                    </select>
-                    
-                    <!-- NOUVEAU : Choix de la langue de traduction -->
-                    <select id="lang-trad" required>
-                        <option value="fr" selected>🌍 Traduction vers : Français</option>
-                        <option value="en">🌍 Traduction vers : Anglais</option>
-                        <option value="ln">🌍 Traduction vers : Lingala (Beta)</option>
-                        <option value="sw">🌍 Traduction vers : Swahili (Beta)</option>
-                    </select>
-
-                    <button type="submit" class="cta-button">Enregistrer</button>
-                    <p id="registration-message" class="success-message" style="color:var(--g-green); text-align:center; font-weight:bold; margin-top:10px;"></p>
+            <div class="profile-card">
+                <div class="profile-banner"></div>
+                <div class="profile-avatar-large">👤</div>
+                <h2 id="display-user-name">Mon Profil</h2>
+                <p class="profile-subtitle">Gérez vos préférences de recherche et de traduction</p>
+                
+                <form id="registration-form" class="profile-form">
+                    <div class="input-group">
+                        <label>Votre Prénom</label>
+                        <input type="text" id="prenom" placeholder="Ex: Jean" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Niveau Académique</label>
+                        <select id="niveau" required>
+                            <option value="" disabled selected>Profil par défaut...</option>
+                            <option value="eleve">🎓 Élève (Primaire, Lycée)</option>
+                            <option value="etudiant">🏛️ Étudiant (Supérieur)</option>
+                            <option value="professeur">👨‍🏫 Professeur</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Langue de Traduction</label>
+                        <select id="lang-trad" required>
+                            <option value="fr" selected>🌍 Français</option>
+                            <option value="en">🌍 Anglais</option>
+                            <option value="ln">🌍 Lingala</option>
+                            <option value="sw">🌍 Swahili</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="cta-button-large">Sauvegarder les modifications</button>
+                    <p id="registration-message" class="success-message" style="color:var(--g-green); font-weight:bold; margin-top:10px;"></p>
                 </form>
             </div>
         </section>
 
-        <!-- HISTORIQUE -->
-        <section id="historique" class="hidden-section history-section">
+        <section id="historique" class="hidden-section dashboard-section">
             <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-            <div class="section-header">
-                <h2>⏳ Historique</h2>
+            <div class="dashboard-header">
+                <div>
+                    <h2>⏳ Mon Historique</h2>
+                    <p>Retrouvez vos recherches récentes</p>
+                </div>
                 <button class="clear-btn" onclick="clearHistory()">🗑️ Tout effacer</button>
             </div>
-            <ul id="history-list" class="history-list"></ul>
+            <div class="timeline" id="history-list"></div>
         </section>
 
-        <!-- FAVORIS -->
-        <section id="favoris" class="hidden-section favorites-section">
+        <section id="favoris" class="hidden-section dashboard-section">
             <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
-            <div class="section-header">
-                <h2>⭐ Favoris sauvegardés</h2>
+            <div class="dashboard-header">
+                <div>
+                    <h2>⭐ Mes Collections</h2>
+                    <p>Vos ressources et articles sauvegardés</p>
+                </div>
                 <button class="clear-btn" onclick="clearFavorites()">🗑️ Tout effacer</button>
             </div>
-            <ul id="favorites-list" class="favorites-list"></ul>
+            <div class="favorites-grid" id="favorites-list"></div>
         </section>
     </main>
 

@@ -1,7 +1,3 @@
-// ===============================================
-// EDUSEARCH AI - Logique Principale Finale (Version Ultime)
-// ===============================================
-
 const API_KEY = '1228fa094e3fc5c0cec02da190f00c94094a5ceb17332a536d8642313734a662'; 
 const PROXY_URL = 'https://api.allorigins.win/raw?url='; 
 
@@ -9,10 +5,6 @@ let synth = window.speechSynthesis;
 let currentUtterance = null;
 let typingTimeout = null; 
 let db; 
-
-// ===============================================
-// 1. UI & NAVIGATION
-// ===============================================
 
 document.getElementById('hamburger-menu').addEventListener('click', () => {
     document.getElementById('nav-links').classList.toggle('show');
@@ -69,10 +61,6 @@ function feelingLucky() {
     executeSearch();
 }
 
-// ===============================================
-// 2. AUTOCOMPLÉTION & VOIX
-// ===============================================
-
 const searchInput = document.getElementById('main-search-query');
 const autoList = document.getElementById('autocomplete-list');
 
@@ -117,10 +105,6 @@ function startVoiceSearch() {
     recognition.onend = () => btn.classList.remove('listening');
     recognition.start();
 }
-
-// ===============================================
-// 3. LOGIQUE DE RECHERCHE & FALLBACK
-// ===============================================
 
 function showSkeletonLoader() {
     document.getElementById('images-hub').innerHTML = Array(4).fill('<div class="skeleton-box skeleton-img"></div>').join('');
@@ -211,10 +195,6 @@ function processResults(data) {
     return res;
 }
 
-// ===============================================
-// 4. LE MÉTA-MOTEUR (10 API SIMULTANÉES)
-// ===============================================
-
 async function fetchUnlimitedSources(query, level) {
     const res = { web: [], images:[] };
     const fetchAPI = async (name, task) => { try { await task(); } catch (e) {} };
@@ -259,6 +239,16 @@ async function fetchUnlimitedSources(query, level) {
         }
     }));
 
+    promises.push(fetchAPI('Gutendex', async () => {
+        const url = `https://gutendex.com/books?search=${encodeURIComponent(query)}`;
+        const data = await (await fetch(url)).json();
+        if (data.results) {
+            data.results.slice(0, 1).forEach(doc => {
+                res.web.push({ title: "Classique : " + doc.title, snippet: `Auteur: ${doc.authors.map(a=>a.name).join(', ')}.`, source: "Projet Gutenberg", link: `https://gutenberg.org/ebooks/${doc.id}`, thumb: doc.formats['image/jpeg'] || null, priority: 5 });
+            });
+        }
+    }));
+
     if (level === 'etudiant' || level === 'professeur') {
         promises.push(fetchAPI('HAL', async () => {
             const url = `https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(query)}&wt=json&fl=title_s,uri_s,abstract_s&rows=2`;
@@ -279,20 +269,46 @@ async function fetchUnlimitedSources(query, level) {
                 });
             }
         }));
+
+        promises.push(fetchAPI('Crossref', async () => {
+            const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&select=title,URL&rows=2`;
+            const data = await (await fetch(url)).json();
+            if (data.message && data.message.items) {
+                data.message.items.forEach(doc => {
+                    res.web.push({ title: "Publication : " + (doc.title ? doc.title[0] : 'Inconnu'), snippet: "Données officielles.", source: "Crossref", link: doc.URL, thumb: null, priority: 4 });
+                });
+            }
+        }));
+
+        promises.push(fetchAPI('PLOS', async () => {
+            const url = `https://api.plos.org/search?q=title:"${encodeURIComponent(query)}"&wt=json&fl=id,title&rows=2`;
+            const data = await (await fetch(url)).json();
+            if (data.response && data.response.docs) {
+                data.response.docs.forEach(doc => {
+                    res.web.push({ title: "Science (PLOS) : " + doc.title, snippet: "Article scientifique en accès libre.", source: "PLOS Journals", link: `https://journals.plos.org/plosone/article?id=${doc.id}`, thumb: null, priority: 4 });
+                });
+            }
+        }));
+
+        promises.push(fetchAPI('DataGouv', async () => {
+            const url = `https://www.data.gouv.fr/api/1/datasets/?q=${encodeURIComponent(query)}&page_size=2`;
+            const data = await (await fetch(url)).json();
+            if (data.data) {
+                data.data.forEach(doc => {
+                    res.web.push({ title: "Données Publiques : " + doc.title, snippet: doc.description ? doc.description.substring(0, 150).replace(/<\/?[^>]+(>|$)/g, "") + "..." : "Base de l'État.", source: "Data.gouv.fr", link: doc.page, thumb: null, priority: 5 });
+                });
+            }
+        }));
     }
 
     await Promise.allSettled(promises);
-    res.images =[...new Set(res.images)].slice(0, 15);
+    res.images = [...new Set(res.images)].slice(0, 15);
 
-    if (res.web.length === 0) throw new Error("Aucun résultat trouvé. Vérifiez l'orthographe.");
+    if (res.web.length === 0) throw new Error("Aucun résultat trouvé.");
     res.web.sort((a, b) => (a.priority || 10) - (b.priority || 10));
 
     return res;
 }
-
-// ===============================================
-// 5. AFFICHAGE ET SYNTHÈSE IA
-// ===============================================
 
 function displayResults(results) {
     const imagesHub = document.getElementById('images-hub');
@@ -302,7 +318,6 @@ function displayResults(results) {
     
     clearTimeout(typingTimeout); 
     
-    // IA TYPING EFFECT
     let bestResultIndex = results.web.findIndex(r => r.priority === 1 || r.source.includes('Wikipedia') || r.source.includes('Directe'));
     
     if (bestResultIndex !== -1 && results.web[bestResultIndex].snippet && results.web[bestResultIndex].snippet.length > 30) {
@@ -324,7 +339,6 @@ function displayResults(results) {
         aiCard.classList.add('hidden');
     }
 
-    // LISTE DES RESULTATS
     imagesHub.innerHTML = results.images.map(img => `<img src="${img}" alt="Image" onerror="this.style.display='none'">`).join('');
     
     resultsList.innerHTML = results.web.map(res => {
@@ -352,10 +366,6 @@ function displayResults(results) {
         </div>`;
     }).join('');
 }
-
-// ===============================================
-// 6. TRADUCTION GOOGLE (MULTI-LANGUES)
-// ===============================================
 
 async function translateCard(btn) {
     const user = JSON.parse(localStorage.getItem('currentUser')) || {};
@@ -389,10 +399,6 @@ async function translateCard(btn) {
         btn.disabled = false;
     }
 }
-
-// ===============================================
-// 7. PROFILS & VOIX
-// ===============================================
 
 function readAloud(title, snippet, btn) {
     if(!synth) return alert("Lecture vocale non supportée.");
@@ -430,10 +436,6 @@ function setupThemeToggle() {
         btn.textContent = dark ? '🌙' : '☀️';
     };
 }
-
-// ===============================================
-// 8. HISTORIQUE & FAVORIS (Nouveau Design Dashboard)
-// ===============================================
 
 function saveToHistory(item) {
     let hist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
@@ -504,10 +506,6 @@ function clearFavorites() {
     }
 }
 
-// ===============================================
-// 9. HORS LIGNE (IndexedDB)
-// ===============================================
-
 function initializeIndexedDB() {
     const request = indexedDB.open('EduSearchDB', 1);
     request.onupgradeneeded = (e) => {
@@ -521,5 +519,3 @@ function saveToIndexedDB(data) {
     if (!db) return;
     db.transaction(['searches'], 'readwrite').objectStore('searches').put(data);
 }
-
-// FIN DU FICHIER COMPLET
