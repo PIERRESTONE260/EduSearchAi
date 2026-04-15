@@ -55,12 +55,6 @@ function handleKeyPress(e) {
     }
 }
 
-function feelingLucky() {
-    const q =["L'histoire des ordinateurs", "Kinshasa", "Comment fonctionne une IA ?", "Les lois de Newton", "La photosynthèse RDC"];
-    document.getElementById('main-search-query').value = q[Math.floor(Math.random() * q.length)];
-    executeSearch();
-}
-
 const searchInput = document.getElementById('main-search-query');
 const autoList = document.getElementById('autocomplete-list');
 
@@ -201,11 +195,11 @@ async function fetchUnlimitedSources(query, level) {
     const promises =[];
 
     promises.push(fetchAPI('Wikipedia', async () => {
-        const url = `https://fr.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages|extracts&exchars=250&exintro=1&pithumbsize=400&format=json&origin=*`;
+        const url = `https://fr.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages|extracts&explaintext=1&exsentences=3&exintro=1&pithumbsize=400&format=json&origin=*`;
         const data = await (await fetch(url)).json();
         if (data.query && data.query.pages) {
             Object.values(data.query.pages).forEach(p => {
-                res.web.push({ title: p.title, snippet: p.extract ? p.extract.replace(/<\/?[^>]+(>|$)/g, "") : "Pas de description.", source: "Wikipedia", link: `https://fr.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`, thumb: p.thumbnail ? p.thumbnail.source : null, priority: 1 });
+                res.web.push({ title: p.title, snippet: p.extract ? p.extract : "Pas de description.", source: "Wikipedia", link: `https://fr.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`, thumb: p.thumbnail ? p.thumbnail.source : null, priority: 1 });
                 if(p.thumbnail) res.images.push(p.thumbnail.source);
             });
         }
@@ -318,18 +312,20 @@ function displayResults(results) {
     
     clearTimeout(typingTimeout); 
     
-    let bestResultIndex = results.web.findIndex(r => r.priority === 1 || r.source.includes('Wikipedia') || r.source.includes('Directe'));
+    let synthesisText = "";
+    let bestResult = results.web.find(r => r.source === 'Réponse Directe' || r.source === 'Wikipedia');
     
-    if (bestResultIndex !== -1 && results.web[bestResultIndex].snippet && results.web[bestResultIndex].snippet.length > 30) {
+    if (bestResult && bestResult.snippet && bestResult.snippet.length > 20) {
+        synthesisText = bestResult.snippet;
+    }
+
+    if (synthesisText) {
         aiCard.classList.remove('hidden');
         aiText.innerHTML = ''; 
-        let textToType = results.web[bestResultIndex].snippet;
-        results.web.splice(bestResultIndex, 1); 
-        
         let i = 0;
         function typeWriter() {
-            if (i < textToType.length) {
-                aiText.innerHTML += textToType.charAt(i);
+            if (i < synthesisText.length) {
+                aiText.innerHTML += synthesisText.charAt(i);
                 i++;
                 typingTimeout = setTimeout(typeWriter, 15);
             }
@@ -339,7 +335,7 @@ function displayResults(results) {
         aiCard.classList.add('hidden');
     }
 
-    imagesHub.innerHTML = results.images.map(img => `<img src="${img}" alt="Image" onerror="this.style.display='none'">`).join('');
+    imagesHub.innerHTML = results.images.map(img => `<a href="${img}" target="_blank"><img src="${img}" alt="Image" onerror="this.style.display='none'"></a>`).join('');
     
     resultsList.innerHTML = results.web.map(res => {
         const safeTitle = encodeURIComponent(res.title);
