@@ -5,7 +5,32 @@ let synth = window.speechSynthesis;
 let currentUtterance = null;
 let typingTimeout = null; 
 let db; 
+let currentPageNumber = 1;
+let currentSearchQuery = "";
 
+// SCROLL INTELLIGENT
+let lastScrollY = window.scrollY;
+const mainHeader = document.getElementById('main-header');
+const searchContainer = document.getElementById('search-container');
+
+window.addEventListener('scroll', () => {
+    let currentScrollY = window.scrollY;
+    if(currentScrollY > 10) mainHeader.classList.add('header-scrolled');
+    else mainHeader.classList.remove('header-scrolled');
+
+    if (document.getElementById('recherche-section').classList.contains('results-active')) {
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            mainHeader.style.transform = 'translateY(-100%)';
+            searchContainer.style.top = '0px'; 
+        } else {
+            mainHeader.style.transform = 'translateY(0)';
+            searchContainer.style.top = window.innerWidth <= 768 ? '60px' : '70px';
+        }
+    }
+    lastScrollY = currentScrollY;
+});
+
+// UI & NAVIGATION
 document.getElementById('hamburger-menu').addEventListener('click', () => {
     document.getElementById('nav-links').classList.toggle('show');
 });
@@ -35,9 +60,28 @@ function resetToHome() {
     document.getElementById('recherche-section').classList.remove('hidden');
     document.getElementById('recherche-section').classList.remove('results-active');
     document.getElementById('search-results-container').classList.add('hidden');
+    document.getElementById('search-tabs').classList.add('hidden');
     document.getElementById('nav-logo').classList.add('hidden');
     document.getElementById('main-search-query').value = '';
+    
+    mainHeader.style.transform = 'translateY(0)';
+    searchContainer.style.top = 'auto';
     clearTimeout(typingTimeout);
+}
+
+function switchTab(tabId, btnElement) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if(btnElement) btnElement.classList.add('active');
+
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+    document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+
+    if(tabId === 'images' && document.getElementById('full-images-grid').innerHTML === '') {
+        fetchTabImages();
+    }
+    if(tabId === 'videos' && document.getElementById('youtube-videos-grid').innerHTML === '') {
+        fetchTabVideos();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -51,10 +95,17 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleKeyPress(e) { 
     if (e.key === 'Enter') {
         document.getElementById('autocomplete-list').innerHTML = '';
-        executeSearch(); 
+        executeSearch(1); 
     }
 }
 
+function feelingLucky() {
+    const q =["L'histoire des ordinateurs", "Kinshasa", "Comment fonctionne une IA ?", "Les lois de Newton", "La photosynthèse"];
+    document.getElementById('main-search-query').value = q[Math.floor(Math.random() * q.length)];
+    executeSearch(1);
+}
+
+// AUTOCOMPLÉTION & VOIX
 const searchInput = document.getElementById('main-search-query');
 const autoList = document.getElementById('autocomplete-list');
 
@@ -73,7 +124,7 @@ searchInput.addEventListener('input', async function() {
             div.addEventListener('click', function() {
                 searchInput.value = sugg;
                 autoList.innerHTML = '';
-                executeSearch(); 
+                executeSearch(1); 
             });
             autoList.appendChild(div);
         });
@@ -94,12 +145,42 @@ function startVoiceSearch() {
     recognition.onstart = () => btn.classList.add('listening');
     recognition.onresult = (e) => {
         document.getElementById('main-search-query').value = e.results[0][0].transcript;
-        executeSearch();
+        executeSearch(1);
     };
     recognition.onend = () => btn.classList.remove('listening');
     recognition.start();
 }
 
+// INTELLIGENCE DEFINITIONS
+function isDefinitionIntent(q) {
+    const words = q.trim().split(/\s+/);
+    if (words.length === 1) return true; 
+    const regex = /^(définition|definition|c'est quoi|que signifie|que veut dire|définir|sens du mot|sens de)\b/i;
+    return regex.test(q); 
+}
+
+async function fetchDefinition(q) {
+    let cleanQ = q.replace(/^(définition de|definition de|définition|definition|c'est quoi( un| une| le| la| l')?|que signifie|que veut dire|définir|sens du mot|sens de)\s*/i, '').trim();
+    try {
+        const url = `https://fr.wiktionary.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQ)}&utf8=&format=json&origin=*`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.query && data.query.search && data.query.search.length > 0) {
+            const snippet = data.query.search[0].snippet.replace(/<\/?[^>]+(>|$)/g, "");
+            return {
+                title: "📖 Définition : " + data.query.search[0].title,
+                snippet: snippet + "...",
+                source: "Wiktionary",
+                link: `https://fr.wiktionary.org/wiki/${encodeURIComponent(data.query.search[0].title)}`,
+                thumb: null,
+                priority: 0 
+            };
+        }
+    } catch(e) {}
+    return null;
+}
+
+// RECHERCHE PRINCIPALE
 function showSkeletonLoader() {
     document.getElementById('images-hub').innerHTML = Array(4).fill('<div class="skeleton-box skeleton-img"></div>').join('');
     document.getElementById('results-list').innerHTML = Array(3).fill(`
@@ -111,19 +192,28 @@ function showSkeletonLoader() {
         </div>
     `).join('');
     document.getElementById('ai-summary-card').classList.add('hidden');
+    document.getElementById('pagination-web').innerHTML = '';
 }
 
-async function executeSearch() {
+async function executeSearch(page = 1) {
     const query = document.getElementById('main-search-query').value.trim();
     const profile = document.getElementById('user-profile').value;
     if (!query) return;
 
+    currentSearchQuery = query;
+    currentPageNumber = page;
+
     document.getElementById('recherche-section').classList.add('results-active');
     document.getElementById('nav-logo').classList.remove('hidden');
+    document.getElementById('search-tabs').classList.remove('hidden');
     document.getElementById('search-results-container').classList.remove('hidden');
-    autoList.innerHTML = '';
     
+    document.getElementById('full-images-grid').innerHTML = '';
+    document.getElementById('youtube-videos-grid').innerHTML = '';
+
+    autoList.innerHTML = '';
     showSkeletonLoader();
+    window.scrollTo(0, 0);
 
     if (!navigator.onLine) {
         document.getElementById('results-list').innerHTML = '<p>🌐 Mode hors ligne. Connexion requise.</p>';
@@ -132,12 +222,39 @@ async function executeSearch() {
     }
 
     try {
-        const results = await fetchSerpApi(query, profile);
-        displayResults(results);
-        saveToHistory({ id: Date.now(), query, level: profile, timestamp: new Date().toLocaleString('fr-FR') });
+        let results = await fetchSerpApi(query, profile);
+        
+        if (page === 1 && isDefinitionIntent(query)) {
+            const def = await fetchDefinition(query);
+            if (def) {
+                results.web = results.web.filter(r => !r.source.includes('Wiktionary'));
+                results.web.unshift(def); 
+            }
+        }
+
+        displayResults(results, page);
+        if(page === 1) {
+            saveToHistory({ id: Date.now(), query, level: profile, timestamp: new Date().toLocaleString('fr-FR') });
+        }
     } catch (error) {
-        document.getElementById('results-list').innerHTML = `<p style="color:var(--g-red);">⚠️ Erreur: ${error.message}</p>`;
-        document.getElementById('images-hub').innerHTML = '';
+        // Fallback to unlimited sources
+        try {
+            let results = await fetchUnlimitedSources(query, profile, page);
+            if (page === 1 && isDefinitionIntent(query)) {
+                const def = await fetchDefinition(query);
+                if (def) {
+                    results.web = results.web.filter(r => !r.source.includes('Wiktionary'));
+                    results.web.unshift(def); 
+                }
+            }
+            displayResults(results, page);
+            if(page === 1) {
+                saveToHistory({ id: Date.now(), query, level: profile, timestamp: new Date().toLocaleString('fr-FR') });
+            }
+        } catch(fallbackError) {
+            document.getElementById('results-list').innerHTML = `<p style="color:var(--g-red);">⚠️ Erreur: ${fallbackError.message}</p>`;
+            document.getElementById('images-hub').innerHTML = '';
+        }
     }
 }
 
@@ -148,30 +265,25 @@ async function fetchSerpApi(query, level) {
         'professeur': 'eduscol.education.fr|reseau-canope.fr|education.gouv.fr'
     };
     
-    try {
-        const params = new URLSearchParams({ engine: 'google', q: query, api_key: API_KEY, gl: 'fr', hl: 'fr', num: 10 });
-        if (filters[level]) params.append('as_sitesearch', filters[level]);
+    const params = new URLSearchParams({ engine: 'google', q: query, api_key: API_KEY, gl: 'fr', hl: 'fr', num: 10 });
+    if (filters[level]) params.append('as_sitesearch', filters[level]);
 
-        let response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
-        let data = await response.json();
-        if (data.error) throw new Error("API Limit"); 
+    let response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
+    let data = await response.json();
+    if (data.error) throw new Error("API Limit"); 
 
-        let processed = processResults(data);
+    let processed = processResults(data);
 
-        if (processed.web.length === 0) {
-            params.delete('as_sitesearch');
-            response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
-            data = await response.json();
-            if (data.error) throw new Error("API Limit");
-            processed = processResults(data);
-        }
-        
-        if (processed.web.length === 0) throw new Error("API Limit");
-        return processed;
-
-    } catch (error) {
-        return await fetchUnlimitedSources(query, level);
+    if (processed.web.length === 0) {
+        params.delete('as_sitesearch');
+        response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
+        data = await response.json();
+        if (data.error) throw new Error("API Limit");
+        processed = processResults(data);
     }
+    
+    if (processed.web.length === 0) throw new Error("API Limit");
+    return processed;
 }
 
 function processResults(data) {
@@ -189,13 +301,14 @@ function processResults(data) {
     return res;
 }
 
-async function fetchUnlimitedSources(query, level) {
+async function fetchUnlimitedSources(query, level, page) {
     const res = { web: [], images:[] };
     const fetchAPI = async (name, task) => { try { await task(); } catch (e) {} };
     const promises =[];
+    const offset = (page - 1) * 10;
 
     promises.push(fetchAPI('Wikipedia', async () => {
-        const url = `https://fr.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages|extracts&explaintext=1&exsentences=3&exintro=1&pithumbsize=400&format=json&origin=*`;
+        const url = `https://fr.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsroffset=${offset}&gsrlimit=8&prop=pageimages|extracts&explaintext=1&exsentences=3&exintro=1&pithumbsize=400&format=json&origin=*`;
         const data = await (await fetch(url)).json();
         if (data.query && data.query.pages) {
             Object.values(data.query.pages).forEach(p => {
@@ -205,15 +318,8 @@ async function fetchUnlimitedSources(query, level) {
         }
     }));
 
-    promises.push(fetchAPI('Commons', async () => {
-        const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&prop=imageinfo&iiprop=url&format=json&origin=*`;
-        const data = await (await fetch(url)).json();
-        if (data.query && data.query.pages) {
-            Object.values(data.query.pages).forEach(p => { if(p.imageinfo && p.imageinfo[0]) res.images.push(p.imageinfo[0].url); });
-        }
-    }));
-
     promises.push(fetchAPI('Wiktionary', async () => {
+        if(page > 1) return; 
         const url = `https://fr.wiktionary.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
         const data = await (await fetch(url)).json();
         if (data.query && data.query.search) {
@@ -224,7 +330,7 @@ async function fetchUnlimitedSources(query, level) {
     }));
 
     promises.push(fetchAPI('OpenLibrary', async () => {
-        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=2`;
+        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&page=${page}&limit=3`;
         const data = await (await fetch(url)).json();
         if (data.docs) {
             data.docs.forEach(doc => {
@@ -233,19 +339,9 @@ async function fetchUnlimitedSources(query, level) {
         }
     }));
 
-    promises.push(fetchAPI('Gutendex', async () => {
-        const url = `https://gutendex.com/books?search=${encodeURIComponent(query)}`;
-        const data = await (await fetch(url)).json();
-        if (data.results) {
-            data.results.slice(0, 1).forEach(doc => {
-                res.web.push({ title: "Classique : " + doc.title, snippet: `Auteur: ${doc.authors.map(a=>a.name).join(', ')}.`, source: "Projet Gutenberg", link: `https://gutenberg.org/ebooks/${doc.id}`, thumb: doc.formats['image/jpeg'] || null, priority: 5 });
-            });
-        }
-    }));
-
     if (level === 'etudiant' || level === 'professeur') {
         promises.push(fetchAPI('HAL', async () => {
-            const url = `https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(query)}&wt=json&fl=title_s,uri_s,abstract_s&rows=2`;
+            const url = `https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(query)}&wt=json&fl=title_s,uri_s,abstract_s&start=${offset}&rows=3`;
             const data = await (await fetch(url)).json();
             if (data.response && data.response.docs) {
                 data.response.docs.forEach(doc => {
@@ -255,41 +351,11 @@ async function fetchUnlimitedSources(query, level) {
         }));
 
         promises.push(fetchAPI('OpenAlex', async () => {
-            const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=2`;
+            const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&page=${page}&per-page=3`;
             const data = await (await fetch(url)).json();
             if (data.results) {
                 data.results.forEach(doc => {
                     res.web.push({ title: "Recherche : " + (doc.title || 'Document'), snippet: `Année: ${doc.publication_year}. Citations: ${doc.cited_by_count}.`, source: "OpenAlex", link: doc.doi || doc.id, thumb: null, priority: 4 });
-                });
-            }
-        }));
-
-        promises.push(fetchAPI('Crossref', async () => {
-            const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&select=title,URL&rows=2`;
-            const data = await (await fetch(url)).json();
-            if (data.message && data.message.items) {
-                data.message.items.forEach(doc => {
-                    res.web.push({ title: "Publication : " + (doc.title ? doc.title[0] : 'Inconnu'), snippet: "Données officielles.", source: "Crossref", link: doc.URL, thumb: null, priority: 4 });
-                });
-            }
-        }));
-
-        promises.push(fetchAPI('PLOS', async () => {
-            const url = `https://api.plos.org/search?q=title:"${encodeURIComponent(query)}"&wt=json&fl=id,title&rows=2`;
-            const data = await (await fetch(url)).json();
-            if (data.response && data.response.docs) {
-                data.response.docs.forEach(doc => {
-                    res.web.push({ title: "Science (PLOS) : " + doc.title, snippet: "Article scientifique en accès libre.", source: "PLOS Journals", link: `https://journals.plos.org/plosone/article?id=${doc.id}`, thumb: null, priority: 4 });
-                });
-            }
-        }));
-
-        promises.push(fetchAPI('DataGouv', async () => {
-            const url = `https://www.data.gouv.fr/api/1/datasets/?q=${encodeURIComponent(query)}&page_size=2`;
-            const data = await (await fetch(url)).json();
-            if (data.data) {
-                data.data.forEach(doc => {
-                    res.web.push({ title: "Données Publiques : " + doc.title, snippet: doc.description ? doc.description.substring(0, 150).replace(/<\/?[^>]+(>|$)/g, "") + "..." : "Base de l'État.", source: "Data.gouv.fr", link: doc.page, thumb: null, priority: 5 });
                 });
             }
         }));
@@ -298,13 +364,13 @@ async function fetchUnlimitedSources(query, level) {
     await Promise.allSettled(promises);
     res.images = [...new Set(res.images)].slice(0, 15);
 
-    if (res.web.length === 0) throw new Error("Aucun résultat trouvé.");
+    if (res.web.length === 0) throw new Error("Aucun résultat trouvé pour cette page.");
     res.web.sort((a, b) => (a.priority || 10) - (b.priority || 10));
 
     return res;
 }
 
-function displayResults(results) {
+function displayResults(results, page) {
     const imagesHub = document.getElementById('images-hub');
     const resultsList = document.getElementById('results-list');
     const aiCard = document.getElementById('ai-summary-card');
@@ -312,30 +378,38 @@ function displayResults(results) {
     
     clearTimeout(typingTimeout); 
     
-    let synthesisText = "";
-    let bestResult = results.web.find(r => r.source === 'Réponse Directe' || r.source === 'Wikipedia');
-    
-    if (bestResult && bestResult.snippet && bestResult.snippet.length > 20) {
-        synthesisText = bestResult.snippet;
-    }
-
-    if (synthesisText) {
-        aiCard.classList.remove('hidden');
-        aiText.innerHTML = ''; 
-        let i = 0;
-        function typeWriter() {
-            if (i < synthesisText.length) {
-                aiText.innerHTML += synthesisText.charAt(i);
-                i++;
-                typingTimeout = setTimeout(typeWriter, 15);
-            }
+    if(page === 1) {
+        let synthesisText = "";
+        let bestResult = results.web.find(r => r.priority === 0 || r.source.includes('Wiktionary') || r.source === 'Réponse Directe' || r.source === 'Wikipedia');
+        
+        if (bestResult && bestResult.snippet && bestResult.snippet.length > 20) {
+            synthesisText = bestResult.snippet;
         }
-        typeWriter();
+
+        if (synthesisText) {
+            aiCard.classList.remove('hidden');
+            aiText.innerHTML = ''; 
+            let i = 0;
+            function typeWriter() {
+                if (i < synthesisText.length) {
+                    aiText.innerHTML += synthesisText.charAt(i);
+                    i++;
+                    typingTimeout = setTimeout(typeWriter, 15);
+                }
+            }
+            typeWriter();
+        } else {
+            aiCard.classList.add('hidden');
+        }
     } else {
         aiCard.classList.add('hidden');
     }
 
-    imagesHub.innerHTML = results.images.map(img => `<a href="${img}" target="_blank"><img src="${img}" alt="Image" onerror="this.style.display='none'"></a>`).join('');
+    if(page === 1) {
+        imagesHub.innerHTML = results.images.map(img => `<a href="${img}" target="_blank"><img src="${img}" alt="Image" onerror="this.style.display='none'"></a>`).join('');
+    } else {
+        imagesHub.innerHTML = '';
+    }
     
     resultsList.innerHTML = results.web.map(res => {
         const safeTitle = encodeURIComponent(res.title);
@@ -361,6 +435,120 @@ function displayResults(results) {
             </div>
         </div>`;
     }).join('');
+
+    renderPagination(page);
+}
+
+function renderPagination(currentPage) {
+    const pagDiv = document.getElementById('pagination-web');
+    let html = '';
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = startPage + 4;
+
+    for(let i = startPage; i <= endPage; i++) {
+        if(i === currentPage) {
+            html += `<button class="page-btn active">${i}</button>`;
+        } else {
+            html += `<button class="page-btn" onclick="executeSearch(${i})">${i}</button>`;
+        }
+    }
+    html += `<button class="page-btn" style="width:auto; padding:0 15px; border-radius:20px;" onclick="executeSearch(${currentPage + 1})">Suivant &raquo;</button>`;
+    pagDiv.innerHTML = html;
+}
+
+// ==========================================
+// ONGLETS IMAGES ET VIDEOS
+// ==========================================
+async function fetchTabImages() {
+    const grid = document.getElementById('full-images-grid');
+    grid.innerHTML = '<p>Chargement des images...</p>';
+    try {
+        const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(currentSearchQuery)}&gsrnamespace=6&gsrlimit=30&prop=imageinfo&iiprop=url&format=json&origin=*`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        grid.innerHTML = '';
+        if (data.query && data.query.pages) {
+            Object.values(data.query.pages).forEach(p => { 
+                if(p.imageinfo && p.imageinfo[0]) {
+                    grid.innerHTML += `<a href="${p.imageinfo[0].url}" target="_blank"><img src="${p.imageinfo[0].url}" loading="lazy" onerror="this.style.display='none'"></a>`;
+                }
+            });
+        } else {
+            grid.innerHTML = '<p>Aucune image supplémentaire trouvée.</p>';
+        }
+    } catch(e) {
+        grid.innerHTML = '<p>Erreur lors du chargement des images.</p>';
+    }
+}
+
+async function fetchTabVideos() {
+    const grid = document.getElementById('youtube-videos-grid');
+    grid.innerHTML = '<p>Recherche de vidéos éducatives...</p>';
+    
+    const instances =['https://vid.puffyan.us', 'https://invidious.jing.rocks', 'https://invidious.nerdvpn.de'];
+    let success = false;
+
+    for (let instance of instances) {
+        try {
+            const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(currentSearchQuery)}&type=video`);
+            if (!res.ok) continue;
+            const videos = await res.json();
+            
+            grid.innerHTML = '';
+            if(videos && videos.length > 0) {
+                videos.slice(0, 12).forEach(vid => {
+                    grid.innerHTML += `
+                        <a href="https://www.youtube.com/watch?v=${vid.videoId}" target="_blank" class="video-card">
+                            <img src="${vid.videoThumbnails ? vid.videoThumbnails[0].url : ''}" class="video-thumbnail" onerror="this.style.display='none'">
+                            <div class="video-info">
+                                <div class="video-title">${vid.title}</div>
+                                <div class="video-channel">${vid.author} • ${Math.floor(vid.lengthSeconds/60)}:${('0'+vid.lengthSeconds%60).slice(-2)}</div>
+                            </div>
+                        </a>
+                    `;
+                });
+            } else {
+                grid.innerHTML = '<p>Aucune vidéo trouvée pour cette recherche.</p>';
+            }
+            success = true;
+            break;
+        } catch(e) {}
+    }
+
+    if(!success) {
+        grid.innerHTML = `<p>Serveurs vidéo saturés. <br><br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery)}" target="_blank" style="color:var(--g-blue); font-weight:bold;">👉 Cliquez ici pour voir les vidéos directement sur YouTube</a>.</p>`;
+    }
+}
+
+// ==========================================
+// TS1 TRANSLATER MODAL & INLINE TRANSLATION
+// ==========================================
+function toggleTranslator() {
+    const modal = document.getElementById('ts1-modal');
+    modal.classList.toggle('hidden');
+}
+
+async function translateUserInput() {
+    const text = document.getElementById('ts1-input').value.trim();
+    const targetLang = document.getElementById('ts1-lang-to').value;
+    const resultBox = document.getElementById('ts1-result');
+
+    if (!text) {
+        resultBox.innerHTML = '<span style="color:var(--g-red);">Veuillez saisir un texte.</span>';
+        return;
+    }
+
+    resultBox.innerHTML = 'Traduction en cours... ⏳';
+
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        resultBox.innerHTML = data[0].map(x => x[0]).join('');
+    } catch (e) {
+        resultBox.innerHTML = '<span style="color:var(--g-red);">❌ Erreur de connexion. Veuillez réessayer.</span>';
+    }
 }
 
 async function translateCard(btn) {
@@ -396,6 +584,9 @@ async function translateCard(btn) {
     }
 }
 
+// ==========================================
+// PROFILS, VOIX, HISTORIQUE, FAVORIS
+// ==========================================
 function readAloud(title, snippet, btn) {
     if(!synth) return alert("Lecture vocale non supportée.");
     if(synth.speaking) { 
