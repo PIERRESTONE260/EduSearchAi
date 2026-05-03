@@ -8,13 +8,16 @@ let db;
 let currentPageNumber = 1;
 let currentSearchQuery = "";
 
-// SCROLL INTELLIGENT
+// ==========================================
+// SCROLL INTELLIGENT 
+// ==========================================
 let lastScrollY = window.scrollY;
 const mainHeader = document.getElementById('main-header');
 const searchContainer = document.getElementById('search-container');
 
 window.addEventListener('scroll', () => {
     let currentScrollY = window.scrollY;
+    
     if(currentScrollY > 10) mainHeader.classList.add('header-scrolled');
     else mainHeader.classList.remove('header-scrolled');
 
@@ -30,7 +33,10 @@ window.addEventListener('scroll', () => {
     lastScrollY = currentScrollY;
 });
 
+
+// ==========================================
 // UI & NAVIGATION
+// ==========================================
 document.getElementById('hamburger-menu').addEventListener('click', () => {
     document.getElementById('nav-links').classList.toggle('show');
 });
@@ -66,6 +72,7 @@ function resetToHome() {
     
     mainHeader.style.transform = 'translateY(0)';
     searchContainer.style.top = 'auto';
+
     clearTimeout(typingTimeout);
 }
 
@@ -105,7 +112,9 @@ function feelingLucky() {
     executeSearch(1);
 }
 
-// AUTOCOMPLÉTION & VOIX
+// ==========================================
+// AUTOCOMPLETION & VOIX
+// ==========================================
 const searchInput = document.getElementById('main-search-query');
 const autoList = document.getElementById('autocomplete-list');
 
@@ -151,7 +160,9 @@ function startVoiceSearch() {
     recognition.start();
 }
 
-// INTELLIGENCE DEFINITIONS
+// ==========================================
+// INTELLIGENCE : DÉFINITIONS (Wiktionary)
+// ==========================================
 function isDefinitionIntent(q) {
     const words = q.trim().split(/\s+/);
     if (words.length === 1) return true; 
@@ -180,7 +191,9 @@ async function fetchDefinition(q) {
     return null;
 }
 
-// RECHERCHE PRINCIPALE
+// ==========================================
+// RECHERCHE PRINCIPALE & PAGINATION
+// ==========================================
 function showSkeletonLoader() {
     document.getElementById('images-hub').innerHTML = Array(4).fill('<div class="skeleton-box skeleton-img"></div>').join('');
     document.getElementById('results-list').innerHTML = Array(3).fill(`
@@ -208,6 +221,7 @@ async function executeSearch(page = 1) {
     document.getElementById('search-tabs').classList.remove('hidden');
     document.getElementById('search-results-container').classList.remove('hidden');
     
+    // Réinitialiser les autres onglets pour forcer un rechargement
     document.getElementById('full-images-grid').innerHTML = '';
     document.getElementById('youtube-videos-grid').innerHTML = '';
 
@@ -222,8 +236,9 @@ async function executeSearch(page = 1) {
     }
 
     try {
-        let results = await fetchSerpApi(query, profile);
+        let results = await fetchUnlimitedSources(query, profile, page);
         
+        // Intercepter la définition si page 1
         if (page === 1 && isDefinitionIntent(query)) {
             const def = await fetchDefinition(query);
             if (def) {
@@ -237,74 +252,19 @@ async function executeSearch(page = 1) {
             saveToHistory({ id: Date.now(), query, level: profile, timestamp: new Date().toLocaleString('fr-FR') });
         }
     } catch (error) {
-        // Fallback to unlimited sources
-        try {
-            let results = await fetchUnlimitedSources(query, profile, page);
-            if (page === 1 && isDefinitionIntent(query)) {
-                const def = await fetchDefinition(query);
-                if (def) {
-                    results.web = results.web.filter(r => !r.source.includes('Wiktionary'));
-                    results.web.unshift(def); 
-                }
-            }
-            displayResults(results, page);
-            if(page === 1) {
-                saveToHistory({ id: Date.now(), query, level: profile, timestamp: new Date().toLocaleString('fr-FR') });
-            }
-        } catch(fallbackError) {
-            document.getElementById('results-list').innerHTML = `<p style="color:var(--g-red);">⚠️ Erreur: ${fallbackError.message}</p>`;
-            document.getElementById('images-hub').innerHTML = '';
-        }
+        document.getElementById('results-list').innerHTML = `<p style="color:var(--g-red);">⚠️ Erreur: ${error.message}</p>`;
+        document.getElementById('images-hub').innerHTML = '';
     }
 }
 
-async function fetchSerpApi(query, level) {
-    const filters = {
-        'eleve': 'wikipedia.org|vikidia.org|maxicours.com|lumni.fr',
-        'etudiant': 'wikipedia.org|cairn.info|jstor.org|scholar.google.com|hal.science',
-        'professeur': 'eduscol.education.fr|reseau-canope.fr|education.gouv.fr'
-    };
-    
-    const params = new URLSearchParams({ engine: 'google', q: query, api_key: API_KEY, gl: 'fr', hl: 'fr', num: 10 });
-    if (filters[level]) params.append('as_sitesearch', filters[level]);
-
-    let response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
-    let data = await response.json();
-    if (data.error) throw new Error("API Limit"); 
-
-    let processed = processResults(data);
-
-    if (processed.web.length === 0) {
-        params.delete('as_sitesearch');
-        response = await fetch(PROXY_URL + encodeURIComponent(`https://serpapi.com/search?${params.toString()}`));
-        data = await response.json();
-        if (data.error) throw new Error("API Limit");
-        processed = processResults(data);
-    }
-    
-    if (processed.web.length === 0) throw new Error("API Limit");
-    return processed;
-}
-
-function processResults(data) {
-    const res = { web:[], images: data.inline_images ? data.inline_images.slice(0, 6).map(i => i.thumbnail) :[] };
-    if (data.answer_box) {
-         res.web.push({ title: data.answer_box.title || 'Définition', snippet: data.answer_box.answer || data.answer_box.snippet, source: 'Réponse Directe', link: data.answer_box.source?.link || '#', thumb: data.answer_box.thumbnail, priority: 1 });
-    }
-    if (data.organic_results) {
-        data.organic_results.slice(0, 10).forEach(item => {
-            let domain = 'Web'; try { domain = new URL(item.link).hostname; } catch(e){}
-            res.web.push({ title: item.title, snippet: item.snippet, source: domain, link: item.link, thumb: item.thumbnail, priority: 2 });
-            if(res.images.length < 5 && item.thumbnail) res.images.push(item.thumbnail);
-        });
-    }
-    return res;
-}
-
+// ==========================================
+// MÉTAMOTEUR DE RECHERCHE (ILLIMITÉ)
+// ==========================================
 async function fetchUnlimitedSources(query, level, page) {
     const res = { web: [], images:[] };
     const fetchAPI = async (name, task) => { try { await task(); } catch (e) {} };
     const promises =[];
+
     const offset = (page - 1) * 10;
 
     promises.push(fetchAPI('Wikipedia', async () => {
@@ -319,7 +279,7 @@ async function fetchUnlimitedSources(query, level, page) {
     }));
 
     promises.push(fetchAPI('Wiktionary', async () => {
-        if(page > 1) return; 
+        if(page > 1) return; // Seulement page 1
         const url = `https://fr.wiktionary.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
         const data = await (await fetch(url)).json();
         if (data.query && data.query.search) {
@@ -370,6 +330,9 @@ async function fetchUnlimitedSources(query, level, page) {
     return res;
 }
 
+// ==========================================
+// AFFICHAGE WEB ET PAGINATION
+// ==========================================
 function displayResults(results, page) {
     const imagesHub = document.getElementById('images-hub');
     const resultsList = document.getElementById('results-list');
@@ -378,6 +341,7 @@ function displayResults(results, page) {
     
     clearTimeout(typingTimeout); 
     
+    // IA TYPING
     if(page === 1) {
         let synthesisText = "";
         let bestResult = results.web.find(r => r.priority === 0 || r.source.includes('Wiktionary') || r.source === 'Réponse Directe' || r.source === 'Wikipedia');
@@ -405,12 +369,14 @@ function displayResults(results, page) {
         aiCard.classList.add('hidden');
     }
 
+    // IMAGES HUB (Page 1)
     if(page === 1) {
         imagesHub.innerHTML = results.images.map(img => `<a href="${img}" target="_blank"><img src="${img}" alt="Image" onerror="this.style.display='none'"></a>`).join('');
     } else {
         imagesHub.innerHTML = '';
     }
     
+    // RESULTATS WEB
     resultsList.innerHTML = results.web.map(res => {
         const safeTitle = encodeURIComponent(res.title);
         const safeSnippet = encodeURIComponent(res.snippet || '');
@@ -457,67 +423,82 @@ function renderPagination(currentPage) {
 }
 
 // ==========================================
-// ONGLETS IMAGES ET VIDEOS
+// ONGLET : IMAGES 
 // ==========================================
 async function fetchTabImages() {
     const grid = document.getElementById('full-images-grid');
     grid.innerHTML = '<p>Chargement des images...</p>';
+    
     try {
+        grid.innerHTML = '';
+        
+        // On récupère d'abord les images de l'onglet principal
+        const mainImages = Array.from(document.querySelectorAll('#images-hub img')).map(img => img.src);
+        mainImages.forEach(src => {
+            grid.innerHTML += `<a href="${src}" target="_blank"><img src="${src}" loading="lazy" onerror="this.style.display='none'"></a>`;
+        });
+
+        // Complète avec Wikimedia Commons
         const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(currentSearchQuery)}&gsrnamespace=6&gsrlimit=30&prop=imageinfo&iiprop=url&format=json&origin=*`;
         const res = await fetch(url);
         const data = await res.json();
         
-        grid.innerHTML = '';
         if (data.query && data.query.pages) {
             Object.values(data.query.pages).forEach(p => { 
-                if(p.imageinfo && p.imageinfo[0]) {
+                if(p.imageinfo && p.imageinfo[0] && !mainImages.includes(p.imageinfo[0].url)) {
                     grid.innerHTML += `<a href="${p.imageinfo[0].url}" target="_blank"><img src="${p.imageinfo[0].url}" loading="lazy" onerror="this.style.display='none'"></a>`;
                 }
             });
-        } else {
-            grid.innerHTML = '<p>Aucune image supplémentaire trouvée.</p>';
         }
+
+        if(grid.innerHTML === '') grid.innerHTML = '<p>Aucune image trouvée.</p>';
     } catch(e) {
-        grid.innerHTML = '<p>Erreur lors du chargement des images.</p>';
+        if(grid.innerHTML === '') grid.innerHTML = '<p>Erreur lors du chargement des images.</p>';
     }
 }
 
+// ==========================================
+// ONGLET : VIDEOS (PROXY 100% FIABLE)
+// ==========================================
 async function fetchTabVideos() {
     const grid = document.getElementById('youtube-videos-grid');
-    grid.innerHTML = '<p>Recherche de vidéos éducatives...</p>';
+    grid.innerHTML = '<p>Recherche de vidéos éducatives YouTube en cours... ⏳</p>';
     
-    const instances =['https://vid.puffyan.us', 'https://invidious.jing.rocks', 'https://invidious.nerdvpn.de'];
-    let success = false;
-
-    for (let instance of instances) {
-        try {
-            const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(currentSearchQuery)}&type=video`);
-            if (!res.ok) continue;
-            const videos = await res.json();
-            
-            grid.innerHTML = '';
-            if(videos && videos.length > 0) {
-                videos.slice(0, 12).forEach(vid => {
-                    grid.innerHTML += `
-                        <a href="https://www.youtube.com/watch?v=${vid.videoId}" target="_blank" class="video-card">
-                            <img src="${vid.videoThumbnails ? vid.videoThumbnails[0].url : ''}" class="video-thumbnail" onerror="this.style.display='none'">
-                            <div class="video-info">
-                                <div class="video-title">${vid.title}</div>
-                                <div class="video-channel">${vid.author} • ${Math.floor(vid.lengthSeconds/60)}:${('0'+vid.lengthSeconds%60).slice(-2)}</div>
-                            </div>
-                        </a>
-                    `;
-                });
-            } else {
-                grid.innerHTML = '<p>Aucune vidéo trouvée pour cette recherche.</p>';
-            }
-            success = true;
-            break;
-        } catch(e) {}
-    }
-
-    if(!success) {
-        grid.innerHTML = `<p>Serveurs vidéo saturés. <br><br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery)}" target="_blank" style="color:var(--g-blue); font-weight:bold;">👉 Cliquez ici pour voir les vidéos directement sur YouTube</a>.</p>`;
+    try {
+        // Proxy gratuit pour scraper directement YouTube
+        const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery + " éducation cours explication")}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ytSearchUrl)}`;
+        
+        const res = await fetch(proxyUrl);
+        const data = await res.json();
+        const htmlText = data.contents;
+        
+        // Extraction des IDs vidéos (Regex hyper stable)
+        const videoIds =[];
+        const regex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+        let match;
+        while ((match = regex.exec(htmlText)) !== null && videoIds.length < 12) {
+            if (!videoIds.includes(match[1])) videoIds.push(match[1]);
+        }
+        
+        grid.innerHTML = '';
+        if (videoIds.length > 0) {
+            videoIds.forEach(id => {
+                grid.innerHTML += `
+                    <a href="https://www.youtube.com/watch?v=${id}" target="_blank" class="video-card">
+                        <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" class="video-thumbnail" onerror="this.style.display='none'">
+                        <div class="video-info">
+                            <div class="video-title">🎥 Regarder la vidéo sur YouTube</div>
+                            <div class="video-channel">Ouvrir le lien pour visionner</div>
+                        </div>
+                    </a>
+                `;
+            });
+        } else {
+            grid.innerHTML = '<p>Aucune vidéo trouvée pour cette recherche.</p>';
+        }
+    } catch(e) {
+        grid.innerHTML = `<p>Impossible d'afficher les vidéos ici. <br><br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery)}" target="_blank" style="color:var(--g-blue); font-weight:bold;">👉 Cliquez pour ouvrir YouTube directement</a>.</p>`;
     }
 }
 
@@ -548,6 +529,26 @@ async function translateUserInput() {
         resultBox.innerHTML = data[0].map(x => x[0]).join('');
     } catch (e) {
         resultBox.innerHTML = '<span style="color:var(--g-red);">❌ Erreur de connexion. Veuillez réessayer.</span>';
+    }
+}
+
+function translateAllResults() {
+    const translateBtns = document.querySelectorAll('.search-result .result-actions button:last-child');
+    if (translateBtns.length === 0) return alert("Rien à traduire pour le moment.");
+    
+    translateBtns.forEach(btn => {
+        if (btn.innerText.includes('Traduire')) translateCard(btn);
+    });
+    
+    const aiText = document.getElementById('ai-summary-text');
+    if (aiText && aiText.innerText.trim().length > 0) {
+        const user = JSON.parse(localStorage.getItem('currentUser')) || {};
+        const targetLang = user.lang || 'fr'; 
+        fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(aiText.innerText)}`)
+        .then(r => r.json())
+        .then(d => {
+            aiText.innerText = d[0].map(x => x[0]).join('');
+        });
     }
 }
 
