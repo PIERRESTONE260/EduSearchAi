@@ -62,13 +62,8 @@
 
                 <div id="search-tabs" class="search-tabs hidden">
                     <button class="tab-btn active" onclick="switchTab('web', this)">📚 Cours & Articles</button>
-                    <button class="tab-btn" onclick="switchTab('images', this)">🖼️ Images & Schémas</button>
-                    <button class="tab-btn" onclick="switchTab('videos', this)">🎥 Vidéos YouTube</button>
-                </div>
-
-                <div class="search-buttons" id="search-buttons">
-                    <button type="button" onclick="executeSearch(1)">Recherche EduSearch</button>
-                    <button type="button" onclick="feelingLucky()">Exemples de requêtes</button>
+                    <!-- <button class="tab-btn" onclick="switchTab('images', this)">🖼️ Images & Schémas</button> -->
+                    <!-- <button class="tab-btn" onclick="switchTab('videos', this)">🎥 Vidéos</button> -->
                 </div>
             </div>
 
@@ -96,7 +91,6 @@
             </div>
         </section>
 
-        <!-- DASHBOARDS -->
         <section id="inscription" class="hidden-section dashboard-section hidden">
             <button class="back-btn" onclick="resetToHome()">⬅️ Retour à la recherche</button>
             <div class="profile-card">
@@ -104,6 +98,7 @@
                 <div class="profile-avatar-large">👤</div>
                 <h2 id="display-user-name">Mon Profil</h2>
                 <p class="profile-subtitle">Gérez vos préférences de recherche et de traduction</p>
+                
                 <form id="registration-form" class="profile-form">
                     <div class="input-group">
                         <label>Votre Prénom</label>
@@ -157,7 +152,6 @@
             <div class="favorites-grid" id="favorites-list"></div>
         </section>
 
-        <!-- FENÊTRE TS1 TRANSLATER -->
         <div id="ts1-modal" class="ts1-modal hidden">
             <div class="ts1-modal-content">
                 <div class="ts1-header">

@@ -8,9 +8,6 @@ let db;
 let currentPageNumber = 1;
 let currentSearchQuery = "";
 
-// ==========================================
-// SCROLL INTELLIGENT 
-// ==========================================
 let lastScrollY = window.scrollY;
 const mainHeader = document.getElementById('main-header');
 const searchContainer = document.getElementById('search-container');
@@ -33,10 +30,6 @@ window.addEventListener('scroll', () => {
     lastScrollY = currentScrollY;
 });
 
-
-// ==========================================
-// UI & NAVIGATION
-// ==========================================
 document.getElementById('hamburger-menu').addEventListener('click', () => {
     document.getElementById('nav-links').classList.toggle('show');
 });
@@ -106,15 +99,6 @@ function handleKeyPress(e) {
     }
 }
 
-function feelingLucky() {
-    const q =["L'histoire des ordinateurs", "Kinshasa", "Comment fonctionne une IA ?", "Les lois de Newton", "La photosynthèse"];
-    document.getElementById('main-search-query').value = q[Math.floor(Math.random() * q.length)];
-    executeSearch(1);
-}
-
-// ==========================================
-// AUTOCOMPLETION & VOIX
-// ==========================================
 const searchInput = document.getElementById('main-search-query');
 const autoList = document.getElementById('autocomplete-list');
 
@@ -160,9 +144,6 @@ function startVoiceSearch() {
     recognition.start();
 }
 
-// ==========================================
-// INTELLIGENCE : DÉFINITIONS (Wiktionary)
-// ==========================================
 function isDefinitionIntent(q) {
     const words = q.trim().split(/\s+/);
     if (words.length === 1) return true; 
@@ -191,9 +172,6 @@ async function fetchDefinition(q) {
     return null;
 }
 
-// ==========================================
-// RECHERCHE PRINCIPALE & PAGINATION
-// ==========================================
 function showSkeletonLoader() {
     document.getElementById('images-hub').innerHTML = Array(4).fill('<div class="skeleton-box skeleton-img"></div>').join('');
     document.getElementById('results-list').innerHTML = Array(3).fill(`
@@ -221,7 +199,6 @@ async function executeSearch(page = 1) {
     document.getElementById('search-tabs').classList.remove('hidden');
     document.getElementById('search-results-container').classList.remove('hidden');
     
-    // Réinitialiser les autres onglets pour forcer un rechargement
     document.getElementById('full-images-grid').innerHTML = '';
     document.getElementById('youtube-videos-grid').innerHTML = '';
 
@@ -238,7 +215,6 @@ async function executeSearch(page = 1) {
     try {
         let results = await fetchUnlimitedSources(query, profile, page);
         
-        // Intercepter la définition si page 1
         if (page === 1 && isDefinitionIntent(query)) {
             const def = await fetchDefinition(query);
             if (def) {
@@ -257,9 +233,6 @@ async function executeSearch(page = 1) {
     }
 }
 
-// ==========================================
-// MÉTAMOTEUR DE RECHERCHE (ILLIMITÉ)
-// ==========================================
 async function fetchUnlimitedSources(query, level, page) {
     const res = { web: [], images:[] };
     const fetchAPI = async (name, task) => { try { await task(); } catch (e) {} };
@@ -279,7 +252,7 @@ async function fetchUnlimitedSources(query, level, page) {
     }));
 
     promises.push(fetchAPI('Wiktionary', async () => {
-        if(page > 1) return; // Seulement page 1
+        if(page > 1) return; 
         const url = `https://fr.wiktionary.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
         const data = await (await fetch(url)).json();
         if (data.query && data.query.search) {
@@ -330,9 +303,6 @@ async function fetchUnlimitedSources(query, level, page) {
     return res;
 }
 
-// ==========================================
-// AFFICHAGE WEB ET PAGINATION
-// ==========================================
 function displayResults(results, page) {
     const imagesHub = document.getElementById('images-hub');
     const resultsList = document.getElementById('results-list');
@@ -341,7 +311,6 @@ function displayResults(results, page) {
     
     clearTimeout(typingTimeout); 
     
-    // IA TYPING
     if(page === 1) {
         let synthesisText = "";
         let bestResult = results.web.find(r => r.priority === 0 || r.source.includes('Wiktionary') || r.source === 'Réponse Directe' || r.source === 'Wikipedia');
@@ -369,14 +338,12 @@ function displayResults(results, page) {
         aiCard.classList.add('hidden');
     }
 
-    // IMAGES HUB (Page 1)
     if(page === 1) {
         imagesHub.innerHTML = results.images.map(img => `<a href="${img}" target="_blank"><img src="${img}" alt="Image" onerror="this.style.display='none'"></a>`).join('');
     } else {
         imagesHub.innerHTML = '';
     }
     
-    // RESULTATS WEB
     resultsList.innerHTML = results.web.map(res => {
         const safeTitle = encodeURIComponent(res.title);
         const safeSnippet = encodeURIComponent(res.snippet || '');
@@ -423,87 +390,111 @@ function renderPagination(currentPage) {
 }
 
 // ==========================================
-// ONGLET : IMAGES 
+// ONGLET 2: IMAGES
 // ==========================================
 async function fetchTabImages() {
     const grid = document.getElementById('full-images-grid');
-    grid.innerHTML = '<p>Chargement des images...</p>';
+    grid.innerHTML = '<p>Chargement des images... ⏳</p>';
     
     try {
         grid.innerHTML = '';
         
-        // On récupère d'abord les images de l'onglet principal
         const mainImages = Array.from(document.querySelectorAll('#images-hub img')).map(img => img.src);
         mainImages.forEach(src => {
             grid.innerHTML += `<a href="${src}" target="_blank"><img src="${src}" loading="lazy" onerror="this.style.display='none'"></a>`;
         });
 
-        // Complète avec Wikimedia Commons
-        const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(currentSearchQuery)}&gsrnamespace=6&gsrlimit=30&prop=imageinfo&iiprop=url&format=json&origin=*`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const transRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=fr&tl=en&dt=t&q=${encodeURIComponent(currentSearchQuery)}`);
+        const transData = await transRes.json();
+        const enQuery = transData[0][0][0];
+
+        const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(enQuery)}&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&format=json&origin=*`;
+        const commonsRes = await fetch(commonsUrl);
+        const commonsData = await commonsRes.json();
         
-        if (data.query && data.query.pages) {
-            Object.values(data.query.pages).forEach(p => { 
+        if (commonsData.query && commonsData.query.pages) {
+            Object.values(commonsData.query.pages).forEach(p => { 
                 if(p.imageinfo && p.imageinfo[0] && !mainImages.includes(p.imageinfo[0].url)) {
                     grid.innerHTML += `<a href="${p.imageinfo[0].url}" target="_blank"><img src="${p.imageinfo[0].url}" loading="lazy" onerror="this.style.display='none'"></a>`;
                 }
             });
         }
 
-        if(grid.innerHTML === '') grid.innerHTML = '<p>Aucune image trouvée.</p>';
+        if(grid.innerHTML === '') grid.innerHTML = '<p>Aucune image trouvée pour cette recherche.</p>';
     } catch(e) {
         if(grid.innerHTML === '') grid.innerHTML = '<p>Erreur lors du chargement des images.</p>';
     }
 }
 
 // ==========================================
-// ONGLET : VIDEOS (PROXY 100% FIABLE)
+// ONGLET 3: VIDÉOS
 // ==========================================
 async function fetchTabVideos() {
     const grid = document.getElementById('youtube-videos-grid');
-    grid.innerHTML = '<p>Recherche de vidéos éducatives YouTube en cours... ⏳</p>';
-    
+    grid.innerHTML = '<p>Recherche de vidéos éducatives en cours... ⏳</p>';
+    grid.innerHTML = '';
+    let videoFound = false;
+
     try {
-        // Proxy gratuit pour scraper directement YouTube
-        const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery + " éducation cours explication")}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ytSearchUrl)}`;
+        const dmUrl = `https://api.dailymotion.com/videos?search=${encodeURIComponent(currentSearchQuery + " cours")}&limit=8&fields=id,title,thumbnail_360_url,owner.username,duration`;
+        const dmRes = await fetch(dmUrl);
+        const dmData = await dmRes.json();
         
+        if (dmData.list && dmData.list.length > 0) {
+            dmData.list.forEach(vid => {
+                const mins = Math.floor(vid.duration / 60);
+                const secs = ('0' + (vid.duration % 60)).slice(-2);
+                grid.innerHTML += `
+                    <a href="https://www.dailymotion.com/video/${vid.id}" target="_blank" class="video-card">
+                        <img src="${vid.thumbnail_360_url}" class="video-thumbnail" onerror="this.style.display='none'">
+                        <div class="video-info">
+                            <div class="video-title">📺 ${vid.title}</div>
+                            <div class="video-channel">Dailymotion • ${vid['owner.username']} • ${mins}:${secs}</div>
+                        </div>
+                    </a>
+                `;
+            });
+            videoFound = true;
+        }
+    } catch (e) {}
+
+    try {
+        const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery + " éducation")}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ytSearchUrl)}`;
         const res = await fetch(proxyUrl);
         const data = await res.json();
         const htmlText = data.contents;
         
-        // Extraction des IDs vidéos (Regex hyper stable)
         const videoIds =[];
         const regex = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
         let match;
-        while ((match = regex.exec(htmlText)) !== null && videoIds.length < 12) {
+        while ((match = regex.exec(htmlText)) !== null && videoIds.length < 8) {
             if (!videoIds.includes(match[1])) videoIds.push(match[1]);
         }
         
-        grid.innerHTML = '';
         if (videoIds.length > 0) {
             videoIds.forEach(id => {
                 grid.innerHTML += `
                     <a href="https://www.youtube.com/watch?v=${id}" target="_blank" class="video-card">
                         <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" class="video-thumbnail" onerror="this.style.display='none'">
                         <div class="video-info">
-                            <div class="video-title">🎥 Regarder la vidéo sur YouTube</div>
-                            <div class="video-channel">Ouvrir le lien pour visionner</div>
+                            <div class="video-title">🎥 Regarder sur YouTube</div>
+                            <div class="video-channel">YouTube • Cliquez pour visionner</div>
                         </div>
                     </a>
                 `;
             });
-        } else {
-            grid.innerHTML = '<p>Aucune vidéo trouvée pour cette recherche.</p>';
+            videoFound = true;
         }
-    } catch(e) {
-        grid.innerHTML = `<p>Impossible d'afficher les vidéos ici. <br><br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery)}" target="_blank" style="color:var(--g-blue); font-weight:bold;">👉 Cliquez pour ouvrir YouTube directement</a>.</p>`;
+    } catch(e) {}
+
+    if (!videoFound) {
+        grid.innerHTML = `<p>Aucune vidéo trouvée directement. <br><br><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(currentSearchQuery)}" target="_blank" style="color:var(--g-blue); font-weight:bold;">👉 Ouvrir la recherche sur YouTube</a></p>`;
     }
 }
 
 // ==========================================
-// TS1 TRANSLATER MODAL & INLINE TRANSLATION
+// TS1 TRANSLATER MODAL & INLINE
 // ==========================================
 function toggleTranslator() {
     const modal = document.getElementById('ts1-modal');
